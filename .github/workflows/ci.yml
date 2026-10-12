@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  status-page:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: status-page
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: status-page/go.mod
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: docker build -t status-page .
+
+  url-shortener:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: url-shortener
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: url-shortener/go.mod
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: docker build -t url-shortener .
+
+  nginx-log-analyzer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nginx-log-analyzer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: nginx-log-analyzer/go.mod
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: docker build -t nginx-log-analyzer .
+
+  ssl-expiry-checker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ssl-expiry-checker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ssl-expiry-checker/go.mod
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: docker build -t ssl-expiry-checker .
+
+  api-gateway:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: api-gateway/go.mod
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: docker build -t api-gateway .

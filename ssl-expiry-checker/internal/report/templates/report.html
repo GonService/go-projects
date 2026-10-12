@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{if .Meta.Refresh}}<meta http-equiv="refresh" content="{{.Meta.Refresh}}">{{end}}
+  <title>TLS certificate report</title>
+  <style>
+    :root { --ink: #17202a; --muted: #5d6b79; --page: #eef1f4; --card: #fff; --line: #d6dde4;
+            --ok: #1a7f4b; --warn: #b7791f; --bad: #c0362c; --err: #6b7785; --track: #e7ebef; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 74rem; margin: 0 auto; padding: 2.2rem 1rem 3rem; }
+    header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: 1.2rem; }
+    h1 { font-size: 1.5rem; margin: 0; font-weight: 650; }
+    .muted { color: var(--muted); }
+    .small { font-size: .85rem; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.2rem; }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1.1rem; border-top: 4px solid var(--line); }
+    .tile span { font-size: .8rem; color: var(--muted); }
+    .tile b { display: block; font-size: 1.6rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .tile.ok { border-top-color: var(--ok); } .tile.warning { border-top-color: var(--warn); }
+    .tile.critical { border-top-color: var(--bad); } .tile.error { border-top-color: var(--err); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .4rem 1.2rem; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; padding: .8rem .7rem .5rem 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    td { padding: .7rem .7rem .7rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    .pill { display: inline-block; min-width: 4.6rem; text-align: center; padding: .1rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 650; color: #fff; text-transform: uppercase; letter-spacing: .03em; }
+    .pill.ok { background: var(--ok); } .pill.warning { background: var(--warn); } .pill.critical { background: var(--bad); } .pill.error { background: var(--err); }
+    .target { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .84rem; font-weight: 600; }
+    .sub { color: var(--muted); font-size: .78rem; }
+    .days { font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; }
+    .days.warning { color: var(--warn); } .days.critical { color: var(--bad); }
+    .meter { width: 6.5rem; height: 5px; background: var(--track); border-radius: 3px; margin-top: .35rem; overflow: hidden; }
+    .meter i { display: block; height: 100%; background: var(--ok); }
+    .meter i.warning { background: var(--warn); } .meter i.critical { background: var(--bad); }
+    .yes { color: var(--ok); font-weight: 600; } .no { color: var(--bad); font-weight: 600; }
+    .problems { color: var(--bad); font-size: .82rem; margin: .25rem 0 0; padding: 0; list-style: none; }
+    .problems.warning { color: var(--warn); }
+    .sans { max-width: 15rem; font-size: .8rem; color: var(--muted); word-break: break-word; }
+    .nowrap { white-space: nowrap; }
+    footer { color: var(--muted); font-size: .82rem; margin-top: 1.2rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+    a { color: inherit; }
+    @media (max-width: 700px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>TLS certificate report</h1>
+    <span class="muted small">Warning below {{.Meta.WarnDays}} days · critical below {{.Meta.CritDays}} days</span>
+  </header>
+
+  <section class="summary">
+    <div class="tile ok"><span>OK</span><b>{{.Summary.OK}}</b></div>
+    <div class="tile warning"><span>Expiring soon</span><b>{{.Summary.Warning}}</b></div>
+    <div class="tile critical"><span>Critical</span><b>{{.Summary.Critical}}</b></div>
+    <div class="tile error"><span>Unreachable</span><b>{{.Summary.Error}}</b></div>
+  </section>
+
+  <section class="card">
+    <table>
+      <thead><tr><th>Status</th><th>Endpoint</th><th>Days left</th><th>Expires</th><th>Issuer</th><th>Names (SAN)</th><th>Chain</th><th>Hostname</th></tr></thead>
+      <tbody>
+      {{range .Results}}
+        <tr>
+          <td><span class="pill {{.Status}}">{{.Status}}</span></td>
+          <td>
+            <div class="target">{{.Target.ServerName}}</div>
+            <div class="sub">{{.Target.Address}}{{if .TLSVersion}} · {{.TLSVersion}} · {{ms .Latency}}{{end}}</div>
+            {{if .Error}}<ul class="problems"><li>{{.Error}}</li></ul>
+            {{else if .Problems}}<ul class="problems {{.Status}}">{{range .Problems}}<li>{{.}}</li>{{end}}</ul>{{end}}
+          </td>
+          {{if .Connected}}
+          {{$level := "ok"}}{{if lt .DaysLeft $.Meta.CritDays}}{{$level = "critical"}}{{else if lt .DaysLeft $.Meta.WarnDays}}{{$level = "warning"}}{{end}}
+          <td><span class="days {{$level}}">{{.DaysLeft}}</span><div class="meter"><i class="{{$level}}" style="width: {{bar .DaysLeft}}%"></i></div></td>
+          <td class="nowrap">{{date .NotAfter}}<div class="sub">since {{date .NotBefore}}</div></td>
+          <td>{{.Issuer}}</td>
+          <td class="sans">{{join .SANs}}</td>
+          <td>{{if .ChainValid}}<span class="yes">Valid</span>{{else}}<span class="no">Invalid</span>{{end}}<div class="sub">{{.ChainLength}} cert{{if gt .ChainLength 1}}s{{end}}</div></td>
+          <td>{{if .HostnameMatch}}<span class="yes">Match</span>{{else}}<span class="no">Mismatch</span>{{end}}</td>
+          {{else}}
+          <td class="muted">-</td><td class="muted">-</td><td class="muted">-</td><td class="muted">-</td><td class="muted">-</td><td class="muted">-</td>
+          {{end}}
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </section>
+
+  <footer><span>Generated {{stamp .Meta.Generated}}{{if .Meta.Refresh}} · refreshes every {{.Meta.Refresh}} seconds{{end}}</span><span>ssl-expiry-checker</span></footer>
+</main>
+</body>
+</html>

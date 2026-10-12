@@ -1,0 +1,38 @@
+{{template "head" (printf "/%s · stats" .Link.Code)}}
+  <header>
+    <h1>/{{.Link.Code}}</h1>
+    <a class="small" href="/">New link</a>
+  </header>
+
+  <section class="card{{if .Created}} notice{{end}}">
+    {{if .Created}}<p class="muted small" style="margin:0 0 .3rem">Link created. Share it:</p>{{end}}
+    <div class="short">{{.Link.ShortURL}}</div>
+    <p class="muted small" style="margin:.4rem 0 0">Redirects to <a href="{{.Link.URL}}" rel="noopener noreferrer">{{.Link.URL}}</a></p>
+  </section>
+
+  <section class="card">
+    <div class="kpis">
+      <div class="kpi"><span class="muted small">Total clicks</span><b>{{thousands .Link.Clicks}}</b></div>
+      <div class="kpi"><span class="muted small">Last click</span><b>{{with .Link.LastClick}}{{date .}}{{else}}—{{end}}</b></div>
+      <div class="kpi"><span class="muted small">Created</span><b>{{date .Link.CreatedAt}}</b></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Clicks in the last 14 days</h2>
+    <div class="chart" role="img" aria-label="Clicks per day">
+      {{range .Bars}}<div title="{{.Day}}: {{.Clicks}} clicks"><span class="{{if eq .Clicks 0}}zero{{end}}" style="height: {{.Height}}%"></span></div>{{end}}
+    </div>
+    <div class="axis">{{range .Bars}}<span>{{.Day}}</span>{{end}}</div>
+  </section>
+
+  <section class="card">
+    <h2>Top referrers</h2>
+    {{if .Refs}}
+    <table>
+      <thead><tr><th>Site</th><th class="num">Clicks</th></tr></thead>
+      <tbody>{{range .Refs}}<tr><td>{{.Host}}</td><td class="num">{{thousands .Clicks}}</td></tr>{{end}}</tbody>
+    </table>
+    {{else}}<p class="muted">No referrer information yet (direct visits or apps).</p>{{end}}
+  </section>
+{{template "foot"}}

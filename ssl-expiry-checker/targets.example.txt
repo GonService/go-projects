@@ -1,0 +1,4 @@
+# One endpoint per line: host, host:port or name@host:port (# starts a comment)
+example.com
+www.example.org:443
+api.example.com@203.0.113.10:443   # check one backend behind the load balancer

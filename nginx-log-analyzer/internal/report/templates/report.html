@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nginx access log report</title>
+  <style>
+    :root { --ink: #17202a; --muted: #5d6b79; --page: #eef1f4; --card: #fff; --line: #d6dde4;
+            --ok: #4f7cac; --warn: #d39b2a; --bad: #c0362c; --track: #e7ebef; --good: #1a7f4b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 68rem; margin: 0 auto; padding: 2.2rem 1rem 3rem; }
+    header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: 1.2rem; }
+    h1 { font-size: 1.5rem; margin: 0; font-weight: 650; }
+    h2 { font-size: 1rem; margin: 0 0 .8rem; font-weight: 650; }
+    .muted { color: var(--muted); }
+    .small { font-size: .85rem; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 1.2rem; }
+    .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; }
+    .kpi span { font-size: .8rem; color: var(--muted); }
+    .kpi b { display: block; font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .kpi b.bad { color: var(--bad); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+    .grid .card { margin-bottom: 0; }
+    .grid + .card, .grid + .grid { margin-top: 1.2rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; padding: 0 .6rem .45rem 0; border-bottom: 1px solid var(--line); }
+    td { padding: .42rem .6rem .42rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    td.key { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .82rem; word-break: break-all; }
+    td.ua { font-size: .8rem; color: var(--muted); word-break: break-word; }
+    .meter { position: relative; height: 6px; background: var(--track); border-radius: 3px; margin-top: .3rem; }
+    .meter i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ok); border-radius: 3px; }
+    .code { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .s2 { color: var(--good); } .s3 { color: var(--ok); } .s4 { color: #9a6a0f; } .s5 { color: var(--bad); }
+    .meter i.s4 { background: var(--warn); } .meter i.s5 { background: var(--bad); } .meter i.s2 { background: var(--good); }
+    .legend { display: flex; gap: 1rem; font-size: .8rem; color: var(--muted); }
+    .legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px; margin-right: .3rem; vertical-align: -1px; }
+    svg { width: 100%; height: auto; display: block; }
+    svg text { font: 11px system-ui, sans-serif; fill: var(--muted); }
+    .tag { display: inline-block; padding: 0 .45rem; border-radius: 4px; font-size: .78rem; font-weight: 600; color: #fff; }
+    .tag.c4xx { background: var(--warn); } .tag.c5xx { background: var(--bad); }
+    footer { color: var(--muted); font-size: .82rem; margin-top: 1.4rem; }
+    @media (max-width: 800px) { .kpis { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Nginx access log report</h1>
+    <span class="muted small">{{join .R.Sources}}{{if .R.Requests}} · {{date .R.From}} to {{date .R.To}} ({{.Minutes}} min){{end}}</span>
+  </header>
+
+  <section class="card kpis">
+    <div class="kpi"><span>Requests</span><b>{{num .R.Requests}}</b></div>
+    <div class="kpi"><span>Unique IPs</span><b>{{num .R.UniqueIPs}}</b></div>
+    <div class="kpi"><span>Error rate (4xx + 5xx)</span><b{{if gt .R.ErrorRate 5.0}} class="bad"{{end}}>{{pct .R.ErrorRate}}</b></div>
+    <div class="kpi"><span>Peak requests/min</span><b>{{with .R.PeakMinute}}{{num .Total}}{{else}}-{{end}}</b></div>
+    <div class="kpi"><span>Latency p95</span><b>{{if .R.HasTimes}}{{dur .R.P95}}{{else}}-{{end}}</b></div>
+    <div class="kpi"><span>Transferred</span><b>{{bytes .R.Bytes}}</b></div>
+  </section>
+
+  <section class="card">
+    <header style="margin-bottom:.4rem">
+      <h2 style="margin:0">Requests over time <span class="muted small" style="font-weight:400">· {{.Chart.Bucket}} per bar</span></h2>
+      <div class="legend"><span><i style="background:var(--ok)"></i>2xx/3xx</span><span><i style="background:var(--warn)"></i>4xx</span><span><i style="background:var(--bad)"></i>5xx</span></div>
+    </header>
+    <svg viewBox="0 0 {{.Chart.W}} {{.Chart.H}}" role="img" aria-label="Requests per minute">
+      {{range .Chart.YLabels}}<line x1="{{$.Chart.Left}}" x2="{{$.Chart.W}}" y1="{{.Y}}" y2="{{.Y}}" stroke="#e3e8ed"/><text x="{{.X}}" y="{{.Y}}" text-anchor="end" dy="4">{{.Text}}</text>{{end}}
+      {{range .Chart.Bars}}<g><title>{{.Title}}</title><rect x="{{.X}}" y="{{.OkY}}" width="{{.W}}" height="{{.OkH}}" fill="#4f7cac"/><rect x="{{.X}}" y="{{.E4Y}}" width="{{.W}}" height="{{.E4H}}" fill="#d39b2a"/><rect x="{{.X}}" y="{{.E5Y}}" width="{{.W}}" height="{{.E5H}}" fill="#c0362c"/></g>{{end}}
+      {{range .Chart.XLabels}}<text x="{{.X}}" y="{{.Y}}" text-anchor="middle">{{.Text}}</text>{{end}}
+    </svg>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Top paths</h2>
+      <table>
+        <thead><tr><th>Path</th><th class="num">Requests</th><th class="num">Share</th></tr></thead>
+        <tbody>{{range .R.TopPaths}}<tr><td class="key">{{.Key}}</td><td class="num">{{num .Count}}</td><td class="num">{{pct .Percent}}</td></tr>{{end}}</tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>Status codes</h2>
+      <table>
+        <thead><tr><th>Code</th><th>Share</th><th class="num">Requests</th></tr></thead>
+        <tbody>{{range .R.Status}}<tr><td class="code {{class .Code}}">{{.Code}}</td><td style="width:55%"><div class="meter"><i class="{{class .Code}}" style="width: {{width .Percent}}"></i></div></td><td class="num">{{num .Count}} · {{pct .Percent}}</td></tr>{{end}}</tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Error spikes</h2>
+      {{if .R.Spikes}}
+      <table>
+        <thead><tr><th>Minute</th><th>Class</th><th class="num">Errors</th><th class="num">Requests</th><th class="num">Usual/min</th></tr></thead>
+        <tbody>{{range .R.Spikes}}<tr><td>{{clock .Time}}</td><td><span class="tag c{{.Class}}">{{.Class}}</span></td><td class="num">{{num .Count}}</td><td class="num">{{num .Total}}</td><td class="num">{{printf "%.0f" .Baseline}}</td></tr>{{end}}</tbody>
+      </table>
+      {{else}}<p class="muted">No minute with an unusual number of 4xx or 5xx responses.</p>{{end}}
+    </section>
+    <section class="card">
+      <h2>Slowest endpoints <span class="muted small" style="font-weight:400">· by average $request_time</span></h2>
+      {{if .R.HasTimes}}
+      <table>
+        <thead><tr><th>Endpoint</th><th class="num">Avg</th><th class="num">p95</th><th class="num">Max</th><th class="num">Requests</th></tr></thead>
+        <tbody>{{range .R.Slowest}}<tr><td class="key">{{.Endpoint}}</td><td class="num">{{dur .Avg}}</td><td class="num">{{dur .P95}}</td><td class="num">{{dur .Max}}</td><td class="num">{{num .Count}}</td></tr>{{end}}</tbody>
+      </table>
+      {{else}}<p class="muted">The log has no $request_time field. Add it to <code>log_format</code> to see latency per endpoint.</p>{{end}}
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Top IPs</h2>
+      <table>
+        <thead><tr><th>IP</th><th class="num">Requests</th><th class="num">Share</th></tr></thead>
+        <tbody>{{range .R.TopIPs}}<tr><td class="key">{{.Key}}</td><td class="num">{{num .Count}}</td><td class="num">{{pct .Percent}}</td></tr>{{end}}</tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>Top user agents</h2>
+      <table>
+        <thead><tr><th>User agent</th><th class="num">Requests</th></tr></thead>
+        <tbody>{{range .R.TopAgents}}<tr><td class="ua">{{.Key}}</td><td class="num">{{num .Count}}</td></tr>{{end}}</tbody>
+      </table>
+    </section>
+  </div>
+
+  <footer>Generated {{date .R.Generated}} by nginx-log-analyzer · malformed lines skipped: {{num .R.Malformed}}</footer>
+</main>
+</body>
+</html>

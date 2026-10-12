@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="30">
+  <title>{{.Title}}</title>
+  <style>
+    :root { --ink: #17202a; --muted: #5d6b79; --page: #eef1f4; --card: #fff; --line: #d6dde4;
+            --up: #1a7f4b; --down: #c0362c; --warn: #b7791f; --empty: #dfe4e9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1rem 3rem; }
+    h1 { font-size: 1.5rem; margin: 0 0 1.2rem; font-weight: 650; }
+    .banner { border-radius: 10px; padding: 1.1rem 1.3rem; color: #fff; font-size: 1.15rem; font-weight: 600; margin-bottom: 1.6rem; }
+    .banner.operational { background: var(--up); }
+    .banner.degraded { background: var(--warn); }
+    .banner.down { background: var(--down); }
+    .banner.pending { background: var(--muted); }
+    ul { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+    li { padding: 1rem 1.2rem; border-top: 1px solid var(--line); }
+    li:first-child { border-top: 0; }
+    .row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+    .name { font-weight: 600; }
+    .state { font-weight: 600; font-size: .95rem; }
+    .state.up { color: var(--up); } .state.down { color: var(--down); } .state.pending { color: var(--muted); }
+    .bars { display: flex; gap: 2px; height: 30px; margin: .6rem 0 .35rem; }
+    .bars span { flex: 1; border-radius: 2px; background: var(--empty); }
+    .bars .ok { background: var(--up); } .bars .fail { background: var(--down); }
+    .meta { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+    .error { color: var(--down); font-size: .85rem; margin-top: .3rem; }
+    footer { color: var(--muted); font-size: .85rem; margin-top: 1.4rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>{{.Title}}</h1>
+  <div class="banner {{.Overall}}" role="status">
+    {{if eq .Overall "operational"}}All systems operational
+    {{else if eq .Overall "degraded"}}Some services are having problems
+    {{else if eq .Overall "down"}}All services are down
+    {{else}}Running the first checks…{{end}}
+  </div>
+  <ul>
+  {{range .Services}}
+    <li>
+      <div class="row">
+        <span class="name">{{.Target.Name}}</span>
+        {{if not .Checked}}<span class="state pending">Checking…</span>
+        {{else if .Up}}<span class="state up">Operational</span>
+        {{else}}<span class="state down">Down</span>{{end}}
+      </div>
+      <div class="bars" aria-label="Last {{len .History}} checks">
+        {{range empty .Capacity (len .History)}}<span></span>{{end}}{{range .History}}<span class="{{if .Up}}ok{{else}}fail{{end}}" title="{{.At.Format "15:04:05"}} {{if .Up}}OK{{else}}{{.Error}}{{end}}"></span>{{end}}
+      </div>
+      <div class="meta">
+        <span>{{if .Checked}}{{pct .Uptime}} uptime in the last {{len .History}} checks{{else}}No data yet{{end}}</span>
+        <span>{{if .Checked}}{{ms .AvgLatency}} average · checked {{ago .Last.At}}{{end}}</span>
+      </div>
+      {{if and .Last (not .Up)}}<div class="error">{{.Last.Error}}</div>{{end}}
+    </li>
+  {{end}}
+  </ul>
+  <footer><span>Updated {{.Now.Format "02/01/2006 15:04:05"}} · refreshes every 30 seconds</span><a href="/api/status">JSON</a></footer>
+</main>
+</body>
+</html>

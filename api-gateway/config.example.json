@@ -1,0 +1,32 @@
+{
+  "listen": ":8080",
+  "admin_listen": ":9090",
+  "trust_proxy": false,
+  "upstream_timeout": "30s",
+  "rate_limit": { "rps": 10, "burst": 20 },
+  "api_keys": [
+    { "name": "mobile-app", "key": "change-me-mobile-0123456789" },
+    { "name": "partner-acme", "key": "change-me-partner-0123456789" }
+  ],
+  "routes": [
+    {
+      "name": "users",
+      "prefix": "/api/users",
+      "upstreams": ["http://users-1:8000", "http://users-2:8000"],
+      "health_check": { "path": "/healthz", "interval": "5s", "timeout": "2s" }
+    },
+    {
+      "name": "orders",
+      "prefix": "/api/orders",
+      "upstreams": ["http://orders:8000"],
+      "rate_limit": { "rps": 2, "burst": 5 }
+    },
+    {
+      "name": "catalog",
+      "prefix": "/catalog",
+      "strip_prefix": true,
+      "public": true,
+      "upstreams": ["http://catalog:8000"]
+    }
+  ]
+}

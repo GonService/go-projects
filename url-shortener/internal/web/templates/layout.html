@@ -1,0 +1,54 @@
+{{define "head"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.}}</title>
+  <style>
+    :root { --ink: #17202a; --muted: #5d6b79; --page: #eef1f4; --card: #fff; --line: #d6dde4;
+            --accent: #1f5f99; --accent-dark: #174a78; --ok: #1a7f4b; --bad: #c0362c; --bar: #dfe4e9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1rem 3rem; }
+    header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+    h1 { font-size: 1.5rem; margin: 0; font-weight: 650; }
+    h2 { font-size: 1.05rem; margin: 0 0 .8rem; font-weight: 650; }
+    a { color: var(--accent); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1.2rem 1.3rem; margin-bottom: 1.4rem; }
+    .muted { color: var(--muted); }
+    .small { font-size: .85rem; }
+    form { display: grid; grid-template-columns: 1fr 12rem auto; gap: .6rem; align-items: end; }
+    label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .25rem; }
+    input { width: 100%; font: inherit; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); }
+    input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+    button { font: inherit; font-weight: 600; padding: .56rem 1.1rem; border: 0; border-radius: 7px; background: var(--accent); color: #fff; cursor: pointer; }
+    button:hover { background: var(--accent-dark); }
+    .error { color: var(--bad); margin: .8rem 0 0; font-size: .92rem; }
+    .notice { border-left: 4px solid var(--ok); }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; padding: 0 .5rem .5rem 0; border-bottom: 1px solid var(--line); }
+    td { padding: .6rem .5rem .6rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+    .target { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+    code { font: .92em ui-monospace, "SFMono-Regular", Menlo, monospace; }
+    .short { font: 600 1.15rem ui-monospace, "SFMono-Regular", Menlo, monospace; word-break: break-all; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .kpi b { display: block; font-size: 1.6rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .chart { display: flex; align-items: flex-end; gap: 4px; height: 140px; margin-top: .4rem; }
+    .chart div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+    .chart span { display: block; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+    .chart span.zero { background: var(--bar); }
+    .axis { display: flex; gap: 4px; font-size: .72rem; color: var(--muted); margin-top: .3rem; font-variant-numeric: tabular-nums; }
+    .axis span { flex: 1; text-align: center; }
+    footer { color: var(--muted); font-size: .85rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+    @media (max-width: 640px) { form { grid-template-columns: 1fr; } .kpis { grid-template-columns: 1fr; } .target { max-width: 10rem; } }
+  </style>
+</head>
+<body>
+<main>{{end}}
+
+{{define "foot"}}  <footer><span>Short links · JSON API at <code>/api/links</code></span><a href="/metrics">Metrics</a></footer>
+</main>
+</body>
+</html>{{end}}

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="10">
+  <title>API gateway status</title>
+  <style>
+    :root { --ink: #17202a; --muted: #5d6b79; --page: #eef1f4; --card: #fff; --line: #d6dde4;
+            --ok: #1a7f4b; --warn: #b7791f; --bad: #c0362c; --accent: #1f5f99; --chip: #e9eef3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 72rem; margin: 0 auto; padding: 2.2rem 1rem 3rem; }
+    header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: 1.2rem; }
+    h1 { font-size: 1.5rem; margin: 0; font-weight: 650; }
+    h2 { font-size: 1rem; margin: 0 0 .8rem; font-weight: 650; }
+    .muted { color: var(--muted); }
+    .small { font-size: .85rem; }
+    .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1.2rem; }
+    .kpi span { font-size: .8rem; color: var(--muted); }
+    .kpi b { display: block; font-size: 1.4rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .kpi b.bad { color: var(--bad); } .kpi b.warn { color: var(--warn); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 1.2rem; overflow-x: auto; }
+    .route { border-top: 1px solid var(--line); padding: .9rem 0; display: grid; grid-template-columns: 15rem 1fr; gap: 1rem; }
+    .route:first-of-type { border-top: 0; padding-top: 0; }
+    .route:last-child { padding-bottom: 0; }
+    .rname { font-weight: 650; }
+    .prefix { font: 600 .85rem ui-monospace, "SFMono-Regular", Menlo, monospace; color: var(--accent); }
+    .chips { margin-top: .35rem; display: flex; flex-wrap: wrap; gap: .3rem; }
+    .chip { background: var(--chip); color: var(--muted); border-radius: 4px; padding: 0 .4rem; font-size: .75rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; padding: 0 .7rem .4rem 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    td { padding: .4rem .7rem .4rem 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    table.targets { table-layout: fixed; min-width: 40rem; }
+    table.targets td { overflow: hidden; text-overflow: ellipsis; }
+    th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: .8rem; }
+    .dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .45rem; vertical-align: 1px; }
+    .dot.up { background: var(--ok); } .dot.down { background: var(--bad); }
+    .state.up { color: var(--ok); font-weight: 600; } .state.down { color: var(--bad); font-weight: 600; }
+    .err { color: var(--bad); font-size: .8rem; }
+    .code { font-weight: 650; font-variant-numeric: tabular-nums; }
+    .s2 { color: var(--ok); } .s3 { color: var(--accent); } .s4 { color: var(--warn); } .s5 { color: var(--bad); }
+    footer { color: var(--muted); font-size: .82rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+    a { color: inherit; }
+    @media (max-width: 800px) { .kpis { grid-template-columns: repeat(2, 1fr); } .route { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>API gateway</h1>
+    <span class="muted small">Listening on {{.Listen}} · up {{since .Started}}</span>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi"><span>Requests</span><b>{{num .Requests}}</b></div>
+    <div class="kpi"><span>5xx rate</span><b{{if gt .ErrorRate 1.0}} class="bad"{{end}}>{{pct .ErrorRate}}</b></div>
+    <div class="kpi"><span>Rate limited (429)</span><b{{if gt .RateLimited 0.0}} class="warn"{{end}}>{{num .RateLimited}}</b></div>
+    <div class="kpi"><span>Auth failures (401)</span><b>{{num .AuthFailed}}</b></div>
+    <div class="kpi"><span>Active clients</span><b>{{.Clients}}</b></div>
+    <div class="kpi"><span>Healthy upstreams</span><b{{if lt .Healthy .Upstreams}} class="warn"{{end}}>{{.Healthy}} / {{.Upstreams}}</b></div>
+  </section>
+
+  <section class="card">
+    <h2>Routes and upstreams</h2>
+    {{range .Routes}}
+    <div class="route">
+      <div>
+        <div class="rname">{{.Name}}</div>
+        <div class="prefix">{{.Prefix}}{{if .StripPrefix}}*{{end}}</div>
+        <div class="chips">
+          <span class="chip">{{if .Public}}public{{else}}API key{{end}}</span>
+          <span class="chip">{{.RPS}} req/s · burst {{.Burst}}</span>
+          {{if .StripPrefix}}<span class="chip">strip prefix</span>{{end}}
+        </div>
+        <div class="muted small" style="margin-top:.35rem">{{num .Requests}} requests</div>
+      </div>
+      <table class="targets">
+        <thead><tr><th style="width:30%">Target</th><th style="width:26%">State</th><th class="num" style="width:13%">Check latency</th><th class="num" style="width:11%">Last check</th><th class="num" style="width:10%">Requests</th><th class="num" style="width:10%">Failures</th></tr></thead>
+        <tbody>
+        {{range .Targets}}
+          <tr>
+            <td class="mono"><span class="dot {{if .Healthy}}up{{else}}down{{end}}"></span>{{.URL}}</td>
+            <td>{{if .Healthy}}<span class="state up">Healthy</span>{{else}}<span class="state down">Down</span> <span class="err">{{.LastError}}</span>{{end}}</td>
+            <td class="num">{{if .Latency}}{{ms .Latency}}{{else}}-{{end}}</td>
+            <td class="num muted">{{ago .LastCheck}}</td>
+            <td class="num">{{.Requests}}</td>
+            <td class="num">{{.Failures}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
+  </section>
+
+  <section class="card">
+    <h2>Recent requests</h2>
+    {{if .Recent}}
+    <table>
+      <thead><tr><th>Time</th><th>Request ID</th><th>Client</th><th>Request</th><th>Route</th><th>Status</th><th class="num">Duration</th><th>Upstream</th></tr></thead>
+      <tbody>
+      {{range .Recent}}
+        <tr>
+          <td class="muted">{{clock .Time}}</td>
+          <td class="mono muted">{{short .RequestID}}</td>
+          <td>{{.Client}}</td>
+          <td class="mono">{{.Method}} {{.Path}}</td>
+          <td>{{.Route}}</td>
+          <td class="code {{class .Status}}">{{.Status}}</td>
+          <td class="num">{{ms .Duration}}</td>
+          <td class="mono muted">{{if .Upstream}}{{.Upstream}}{{else}}-{{end}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}<p class="muted">No requests yet.</p>{{end}}
+  </section>
+
+  <footer><span>Refreshes every 10 seconds</span><span><a href="/api/status">JSON</a> · <a href="/metrics">Metrics</a></span></footer>
+</main>
+</body>
+</html>

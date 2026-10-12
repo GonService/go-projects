@@ -1,0 +1,7 @@
+{
+  "title": "GonService status",
+  "services": [
+    { "name": "Website", "url": "https://gonserviceit.com.br", "interval": "30s" },
+    { "name": "Example API", "url": "https://example.com", "interval": "60s", "timeout": "5s", "expected_status": 200 }
+  ]
+}
